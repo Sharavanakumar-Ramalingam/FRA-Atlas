@@ -14,11 +14,13 @@ backend/**/__pycache__/
 backend/.pytest_cache/
 backend/**/.pytest_cache/
 
-# Environment variables
+# Environment variables - CRITICAL: Never commit these!
 .env
 .env.local
 .env.production
 .env.development
+backend/.env
+frontend/.env
 
 # IDE files
 .vscode/

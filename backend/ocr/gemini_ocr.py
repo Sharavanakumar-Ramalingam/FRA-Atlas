@@ -12,7 +12,14 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Configure Gemini API
-API_KEY = 'AIzaSyC7kcDQFkHQTbJaJtj2JZ8zVaDHdA3Li-E'
+import os
+from decouple import config
+
+# Get API key from environment variable (secure method)
+API_KEY = config('GOOGLE_GEMINI_API_KEY', default=None)
+if not API_KEY:
+    raise ValueError("GOOGLE_GEMINI_API_KEY environment variable is required")
+
 genai.configure(api_key=API_KEY)
 
 class GeminiOCRProcessor:

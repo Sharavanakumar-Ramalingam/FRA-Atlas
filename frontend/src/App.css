@@ -1,0 +1,80 @@
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+.App {
+  text-align: center;
+}
+
+.App-header {
+  background-color: #52c41a;
+  padding: 20px;
+  color: white;
+}
+
+.App-link {
+  color: #61dafb;
+}
+
+/* Leaflet map container */
+.leaflet-container {
+  height: 500px;
+  width: 100%;
+  border-radius: 8px;
+}
+
+/* Custom styles for components */
+.dashboard-stats {
+  margin-bottom: 24px;
+}
+
+.upload-area {
+  border: 2px dashed #d9d9d9;
+  border-radius: 8px;
+  padding: 40px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.3s;
+}
+
+.upload-area:hover {
+  border-color: #40a9ff;
+}
+
+.claims-table {
+  margin-top: 16px;
+}
+
+.dss-recommendations {
+  background: #f9f9f9;
+  padding: 16px;
+  border-radius: 8px;
+  margin: 16px 0;
+}
+
+.scheme-card {
+  margin-bottom: 16px;
+  border-left: 4px solid #52c41a;
+}
+
+.priority-high {
+  border-left-color: #f5222d;
+}
+
+.priority-medium {
+  border-left-color: #fa8c16;
+}
+
+.priority-low {
+  border-left-color: #52c41a;
+}

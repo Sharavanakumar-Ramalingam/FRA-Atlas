@@ -1,0 +1,59 @@
+# Node modules
+frontend/node_modules/
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+
+# Production builds
+frontend/build/
+frontend/dist/
+
+# Python cache
+backend/__pycache__/
+backend/**/__pycache__/
+backend/.pytest_cache/
+backend/**/.pytest_cache/
+
+# Environment variables
+.env
+.env.local
+.env.production
+.env.development
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Database files
+*.db
+*.sqlite
+
+# Logs
+*.log
+logs/
+
+# Docker volumes
+docker-data/
+
+# Uploads directory
+backend/uploads/
+
+# Temporary files
+tmp/
+temp/
+
+# Coverage reports
+coverage/
+*.coverage
+
+# Jupyter notebooks
+*.ipynb_checkpoints
+
+# ML models (if cached locally)
+backend/models/cached/

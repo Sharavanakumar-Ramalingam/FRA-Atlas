@@ -28,6 +28,15 @@ class Claim(Base):
     # Timestamps
     created_date = Column(DateTime(timezone=True), server_default=func.now())
     updated_date = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Verification and approval tracking
+    verification_notes = Column(Text)  # JSON string for officer comments and history
+    officer_name = Column(String(255))  # Last officer who handled the claim
+    approval_date = Column(DateTime(timezone=True))
+    
+    # DSS Recommendation integration
+    dss_recommendation = Column(Text)  # JSON string for recommendation details
+    recommended_schemes = Column(Text)  # JSON string for applicable schemes
     claim_date = Column(DateTime(timezone=True))
     
     # Additional details

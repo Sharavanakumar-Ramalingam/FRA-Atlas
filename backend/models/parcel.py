@@ -43,8 +43,14 @@ class Parcel(Base):
         """Convert geometry text to GeoJSON format"""
         if self.geometry_text:
             try:
-                return json.loads(self.geometry_text)
-            except:
+                # If it's already a JSON string, parse it
+                if isinstance(self.geometry_text, str):
+                    return json.loads(self.geometry_text)
+                # If it's already a dict, return as-is
+                elif isinstance(self.geometry_text, dict):
+                    return self.geometry_text
+            except json.JSONDecodeError as e:
+                print(f"Error parsing geometry JSON for parcel {self.parcel_id}: {e}")
                 return None
         return None
     

@@ -158,8 +158,8 @@ const DSSRecommendations = () => {
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
-        <Title level={2}>DSS Recommendations</Title>
-        <p>Get personalized Central Sector Scheme recommendations for FRA claimants</p>
+        <Title level={2}>🧠 DSS Recommendations</Title>
+        <p>Get personalized Central Sector Scheme recommendations for FRA claimants in <strong>Telangana</strong> and <strong>Odisha</strong></p>
       </div>
 
       {/* Input Form */}
@@ -187,12 +187,14 @@ const DSSRecommendations = () => {
             <Form.Item
               name="claim_id"
               label="Claim ID"
-              help="Enter the specific FRA claim ID for targeted recommendations"
+              help="Enter the specific FRA claim ID (1-8 for sample data) for targeted recommendations"
             >
               <Input 
-                placeholder="e.g., 12345" 
+                placeholder="e.g., 1, 2, 3... (sample claim IDs)" 
                 type="number"
                 suffix={<SearchOutlined />}
+                min={1}
+                max={8}
               />
             </Form.Item>
           </div>
@@ -222,14 +224,36 @@ const DSSRecommendations = () => {
                 }),
               ]}
             >
-              <Input placeholder="Enter village name" />
+              <Select placeholder="Select village" allowClear>
+                {/* Telangana Villages */}
+                <Option value="Eturunagaram">Eturunagaram (Warangal, Telangana)</Option>
+                <Option value="Bhadrachalam">Bhadrachalam (Khammam, Telangana)</Option>
+                <Option value="Utnoor">Utnoor (Adilabad, Telangana)</Option>
+                <Option value="Medak">Medak (Medak, Telangana)</Option>
+                {/* Odisha Villages */}
+                <Option value="Bhawanipatna">Bhawanipatna (Kalahandi, Odisha)</Option>
+                <Option value="Rayagada">Rayagada (Rayagada, Odisha)</Option>
+                <Option value="Sundargarh">Sundargarh (Sundargarh, Odisha)</Option>
+                <Option value="Koraput">Koraput (Koraput, Odisha)</Option>
+              </Select>
             </Form.Item>
 
             <Form.Item
               name="district"
               label="District"
             >
-              <Input placeholder="Enter district name" />
+              <Select placeholder="Select district" allowClear>
+                {/* Telangana Districts */}
+                <Option value="Warangal">Warangal (Telangana)</Option>
+                <Option value="Khammam">Khammam (Telangana)</Option>
+                <Option value="Adilabad">Adilabad (Telangana)</Option>
+                <Option value="Medak">Medak (Telangana)</Option>
+                {/* Odisha Districts */}
+                <Option value="Kalahandi">Kalahandi (Odisha)</Option>
+                <Option value="Rayagada">Rayagada (Odisha)</Option>
+                <Option value="Sundargarh">Sundargarh (Odisha)</Option>
+                <Option value="Koraput">Koraput (Odisha)</Option>
+              </Select>
             </Form.Item>
 
             <Form.Item
@@ -237,19 +261,8 @@ const DSSRecommendations = () => {
               label="State"
             >
               <Select placeholder="Select state" allowClear>
-                <Option value="Andhra Pradesh">Andhra Pradesh</Option>
-                <Option value="Arunachal Pradesh">Arunachal Pradesh</Option>
-                <Option value="Assam">Assam</Option>
-                <Option value="Chhattisgarh">Chhattisgarh</Option>
-                <Option value="Goa">Goa</Option>
-                <Option value="Gujarat">Gujarat</Option>
-                <Option value="Jharkhand">Jharkhand</Option>
-                <Option value="Karnataka">Karnataka</Option>
-                <Option value="Madhya Pradesh">Madhya Pradesh</Option>
-                <Option value="Maharashtra">Maharashtra</Option>
-                <Option value="Odisha">Odisha</Option>
-                <Option value="Rajasthan">Rajasthan</Option>
-                <Option value="West Bengal">West Bengal</Option>
+                <Option value="Telangana">🏛️ Telangana</Option>
+                <Option value="Odisha">🏛️ Odisha</Option>
               </Select>
             </Form.Item>
           </div>
@@ -376,26 +389,69 @@ const DSSRecommendations = () => {
       )}
 
       {/* Instructions */}
-      <Card title="How DSS Works" style={{ marginTop: 24 }}>
-        <div style={{ color: '#666' }}>
-          <Title level={4}>Decision Support System Features:</Title>
-          <ul>
-            <li><strong>Contextual Analysis:</strong> Analyzes claim location, type, and demographic factors</li>
-            <li><strong>Scheme Matching:</strong> Matches FRA claims with relevant Central Sector Schemes</li>
-            <li><strong>Priority Scoring:</strong> Assigns priority scores based on eligibility and context</li>
-            <li><strong>Documentation Guidance:</strong> Lists required documents for each scheme</li>
-            <li><strong>Actionable Insights:</strong> Provides immediate next steps for claimants</li>
-          </ul>
+      <Card title="📋 How to Use DSS Recommendations" style={{ marginTop: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '20px' }}>
+          <div>
+            <Title level={4} style={{ color: '#1890ff' }}>🎯 Available Sample Data</Title>
+            <div style={{ fontSize: '14px', color: '#666' }}>
+              <p><strong>Telangana Claims (IDs 1-4):</strong></p>
+              <ul style={{ paddingLeft: '20px', margin: '8px 0' }}>
+                <li>ID 1: Warangal - Eturunagaram (Approved)</li>
+                <li>ID 2: Khammam - Bhadrachalam (Pending)</li>
+                <li>ID 3: Adilabad - Utnoor (Approved)</li>
+                <li>ID 4: Medak - Medak (Rejected)</li>
+              </ul>
+              
+              <p><strong>Odisha Claims (IDs 5-8):</strong></p>
+              <ul style={{ paddingLeft: '20px', margin: '8px 0' }}>
+                <li>ID 5: Kalahandi - Bhawanipatna (Approved)</li>
+                <li>ID 6: Rayagada - Rayagada (Pending)</li>
+                <li>ID 7: Sundargarh - Sundargarh (Pending)</li>
+                <li>ID 8: Koraput - Koraput (Approved)</li>
+              </ul>
+            </div>
+          </div>
           
-          <Title level={4}>Supported Schemes:</Title>
-          <ul>
-            <li>PM-KISAN (Pradhan Mantri Kisan Samman Nidhi)</li>
-            <li>MGNREGA (Employment Guarantee)</li>
-            <li>Jal Jeevan Mission (Water Connection)</li>
-            <li>DAJGUA (Livelihood Support)</li>
-            <li>PMAY-Gramin (Rural Housing)</li>
-            <li>PMFBY (Crop Insurance)</li>
-          </ul>
+          <div>
+            <Title level={4} style={{ color: '#1890ff' }}>🧠 Decision Support System Features</Title>
+            <ul style={{ fontSize: '14px', color: '#666', paddingLeft: '20px' }}>
+              <li><strong>Contextual Analysis:</strong> Analyzes claim location, type, and demographic factors</li>
+              <li><strong>Scheme Matching:</strong> Matches FRA claims with relevant Central Sector Schemes</li>
+              <li><strong>Priority Scoring:</strong> Assigns priority scores based on eligibility and context</li>
+              <li><strong>Documentation Guidance:</strong> Lists required documents for each scheme</li>
+              <li><strong>Actionable Insights:</strong> Provides immediate next steps for claimants</li>
+            </ul>
+          </div>
+          
+          <div style={{ gridColumn: 'span 2' }}>
+            <Title level={4} style={{ color: '#1890ff' }}>💰 Supported Central Sector Schemes</Title>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px', fontSize: '14px' }}>
+              <div style={{ padding: '12px', background: '#f6ffed', borderRadius: '6px', border: '1px solid #b7eb8f' }}>
+                <strong>🌾 PM-KISAN</strong><br/>
+                <small>Pradhan Mantri Kisan Samman Nidhi - Income support for farmers</small>
+              </div>
+              <div style={{ padding: '12px', background: '#f6ffed', borderRadius: '6px', border: '1px solid #b7eb8f' }}>
+                <strong>🏗️ MGNREGA</strong><br/>
+                <small>Employment Guarantee - 100 days guaranteed employment</small>
+              </div>
+              <div style={{ padding: '12px', background: '#f6ffed', borderRadius: '6px', border: '1px solid #b7eb8f' }}>
+                <strong>💧 Jal Jeevan Mission</strong><br/>
+                <small>Water Connection - Safe drinking water access</small>
+              </div>
+              <div style={{ padding: '12px', background: '#f6ffed', borderRadius: '6px', border: '1px solid #b7eb8f' }}>
+                <strong>🛡️ DAJGUA</strong><br/>
+                <small>Livelihood Support - Tribal development programs</small>
+              </div>
+              <div style={{ padding: '12px', background: '#f6ffed', borderRadius: '6px', border: '1px solid #b7eb8f' }}>
+                <strong>🏠 PMAY-Gramin</strong><br/>
+                <small>Rural Housing - Pucca house construction</small>
+              </div>
+              <div style={{ padding: '12px', background: '#f6ffed', borderRadius: '6px', border: '1px solid #b7eb8f' }}>
+                <strong>🌱 PMFBY</strong><br/>
+                <small>Crop Insurance - Agricultural risk coverage</small>
+              </div>
+            </div>
+          </div>
         </div>
       </Card>
     </div>

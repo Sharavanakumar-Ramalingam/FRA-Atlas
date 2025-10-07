@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Select, Button, Space, Typography, Alert } from 'antd';
-import { MapContainer, TileLayer, GeoJSON } from 'react-leaflet';
+import { MapContainer, TileLayer, GeoJSON, useMap } from 'react-leaflet';
 import { GlobalOutlined, AppstoreOutlined, ReloadOutlined } from '@ant-design/icons';
 import 'leaflet/dist/leaflet.css';
 import { api } from '../services/api';
@@ -17,6 +17,30 @@ L.Icon.Default.mergeOptions({
 const { Option } = Select;
 const { Title } = Typography;
 
+// Component to handle map bounds fitting
+const MapBoundsHandler = ({ parcelsData }) => {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (parcelsData && parcelsData.features && parcelsData.features.length > 0) {
+      setTimeout(() => {
+        const group = new L.featureGroup();
+        parcelsData.features.forEach(feature => {
+          if (feature.geometry && feature.geometry.coordinates) {
+            const layer = L.geoJSON(feature);
+            group.addLayer(layer);
+          }
+        });
+        if (group.getLayers().length > 0) {
+          map.fitBounds(group.getBounds(), { padding: [20, 20] });
+        }
+      }, 500);
+    }
+  }, [parcelsData, map]);
+  
+  return null;
+};
+
 const GISViewer = () => {
   const [loading, setLoading] = useState(false);
   const [parcelsData, setParcelsData] = useState(null);
@@ -25,8 +49,8 @@ const GISViewer = () => {
     district: undefined,
     village: undefined
   });
-  const [mapCenter] = useState([20.5937, 78.9629]); // Center of India
-  const [mapZoom] = useState(5);
+  const [mapCenter, setMapCenter] = useState([19.5, 82.5]); // Center between Telangana and Odisha
+  const [mapZoom, setMapZoom] = useState(6);
 
   useEffect(() => {
     loadParcelsData();
@@ -38,9 +62,27 @@ const GISViewer = () => {
       const response = await api.getParcels(filters);
       const data = response.data;
       
+      console.log('Received parcels data:', data); // Debug log
+      
       if (data && data.type === 'FeatureCollection') {
-        setParcelsData(data);
+        // Filter out features with invalid geometry
+        const validFeatures = data.features.filter(feature => {
+          if (!feature.geometry || !feature.geometry.coordinates) {
+            console.warn('Skipping feature with invalid geometry:', feature);
+            return false;
+          }
+          return true;
+        });
+        
+        const featuresData = {
+          ...data,
+          features: validFeatures
+        };
+        
+        setParcelsData(featuresData);
+        
       } else {
+        console.warn('Invalid data format received:', data);
         setParcelsData(null);
       }
     } catch (error) {
@@ -95,16 +137,32 @@ const GISViewer = () => {
   const onEachFeature = (feature, layer) => {
     if (feature.properties) {
       const props = feature.properties;
+      const status = props.status || 'pending';
+      const statusText = status.charAt(0).toUpperCase() + status.slice(1);
+      const statusColor = status === 'approved' ? '#52c41a' : status === 'rejected' ? '#f5222d' : '#fa8c16';
+      
       const popupContent = `
-        <div style="min-width: 200px;">
-          <h4>Parcel Information</h4>
-          <p><strong>Parcel ID:</strong> ${props.parcel_id || 'N/A'}</p>
-          <p><strong>Village:</strong> ${props.village || 'N/A'}</p>
-          <p><strong>District:</strong> ${props.district || 'N/A'}</p>
-          <p><strong>State:</strong> ${props.state || 'N/A'}</p>
-          <p><strong>Area:</strong> ${props.area_hectares ? `${props.area_hectares} ha` : 'N/A'}</p>
-          <p><strong>Land Type:</strong> ${props.land_type || 'N/A'}</p>
-          <p><strong>Survey Number:</strong> ${props.survey_number || 'N/A'}</p>
+        <div style="min-width: 280px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+          <h4 style="margin: 0 0 12px 0; color: #1890ff; border-bottom: 2px solid #f0f0f0; padding-bottom: 8px;">📍 FRA Parcel Details</h4>
+          
+          <div style="margin-bottom: 12px;">
+            <span style="background: ${statusColor}; color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px;">
+              ${statusText.toUpperCase()}
+            </span>
+          </div>
+          
+          <div style="display: grid; gap: 6px;">
+            <p style="margin: 0;"><strong>👤 Claimant:</strong> ${props.claimant_name || 'N/A'}</p>
+            <p style="margin: 0;"><strong>📋 Claim Type:</strong> ${props.claim_type || 'N/A'}</p>
+            <p style="margin: 0;"><strong>🏷️ Parcel ID:</strong> ${props.parcel_id || 'N/A'}</p>
+            <p style="margin: 0;"><strong>🏘️ Village:</strong> ${props.village || 'N/A'}</p>
+            <p style="margin: 0;"><strong>🏛️ District:</strong> ${props.district || 'N/A'}</p>
+            <p style="margin: 0;"><strong>🗺️ State:</strong> ${props.state || 'N/A'}</p>
+            <p style="margin: 0;"><strong>📏 Area:</strong> ${props.area_hectares ? `${props.area_hectares} hectares` : 'N/A'}</p>
+            <p style="margin: 0;"><strong>🌾 Land Type:</strong> ${props.land_type || 'N/A'}</p>
+            <p style="margin: 0;"><strong>📊 Survey Number:</strong> ${props.survey_number || 'N/A'}</p>
+            ${props.boundaries ? `<p style="margin: 6px 0 0 0;"><strong>🗺️ Boundaries:</strong><br><small>${props.boundaries}</small></p>` : ''}
+          </div>
         </div>
       `;
       layer.bindPopup(popupContent);
@@ -114,12 +172,37 @@ const GISViewer = () => {
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
-        <Title level={2}>GIS Viewer</Title>
-        <p>Interactive map visualization of FRA parcels and claims</p>
+        <Title level={2}>🗺️ FRA Atlas - GIS Viewer</Title>
+        <p>Interactive map visualization of Forest Rights Act parcels in <strong>Telangana</strong> and <strong>Odisha</strong> states</p>
       </div>
 
       {/* Map Controls */}
       <Card style={{ marginBottom: 16 }}>
+        <div style={{ marginBottom: 16 }}>
+          <Space size="middle">
+            <Button 
+              type={filters.state === 'Telangana' ? 'primary' : 'default'}
+              onClick={() => setFilters({ state: 'Telangana', district: undefined, village: undefined })}
+              style={{ borderRadius: '6px' }}
+            >
+              🏛️ Telangana
+            </Button>
+            <Button 
+              type={filters.state === 'Odisha' ? 'primary' : 'default'}
+              onClick={() => setFilters({ state: 'Odisha', district: undefined, village: undefined })}
+              style={{ borderRadius: '6px' }}
+            >
+              🏛️ Odisha
+            </Button>
+            <Button 
+              onClick={() => setFilters({ state: undefined, district: undefined, village: undefined })}
+              style={{ borderRadius: '6px' }}
+            >
+              🌍 View All
+            </Button>
+          </Space>
+        </div>
+        
         <Space size="middle" wrap>
           <Select
             placeholder="Select State"
@@ -128,16 +211,8 @@ const GISViewer = () => {
             onChange={(value) => handleFilterChange('state', value)}
             value={filters.state}
           >
-            <Option value="Andhra Pradesh">Andhra Pradesh</Option>
-            <Option value="Arunachal Pradesh">Arunachal Pradesh</Option>
-            <Option value="Assam">Assam</Option>
-            <Option value="Chhattisgarh">Chhattisgarh</Option>
-            <Option value="Jharkhand">Jharkhand</Option>
-            <Option value="Madhya Pradesh">Madhya Pradesh</Option>
-            <Option value="Maharashtra">Maharashtra</Option>
+            <Option value="Telangana">Telangana</Option>
             <Option value="Odisha">Odisha</Option>
-            <Option value="Rajasthan">Rajasthan</Option>
-            <Option value="West Bengal">West Bengal</Option>
           </Select>
 
           <Select
@@ -148,9 +223,24 @@ const GISViewer = () => {
             value={filters.district}
             disabled={!filters.state}
           >
-            {/* Districts would be populated based on selected state */}
-            <Option value="District 1">District 1</Option>
-            <Option value="District 2">District 2</Option>
+            {/* Telangana Districts */}
+            {filters.state === 'Telangana' && (
+              <>
+                <Option value="Warangal">Warangal</Option>
+                <Option value="Khammam">Khammam</Option>
+                <Option value="Adilabad">Adilabad</Option>
+                <Option value="Medak">Medak</Option>
+              </>
+            )}
+            {/* Odisha Districts */}
+            {filters.state === 'Odisha' && (
+              <>
+                <Option value="Kalahandi">Kalahandi</Option>
+                <Option value="Rayagada">Rayagada</Option>
+                <Option value="Sundargarh">Sundargarh</Option>
+                <Option value="Koraput">Koraput</Option>
+              </>
+            )}
           </Select>
 
           <Select
@@ -161,9 +251,32 @@ const GISViewer = () => {
             value={filters.village}
             disabled={!filters.district}
           >
-            {/* Villages would be populated based on selected district */}
-            <Option value="Village 1">Village 1</Option>
-            <Option value="Village 2">Village 2</Option>
+            {/* Telangana Villages */}
+            {filters.state === 'Telangana' && filters.district === 'Warangal' && (
+              <Option value="Eturunagaram">Eturunagaram</Option>
+            )}
+            {filters.state === 'Telangana' && filters.district === 'Khammam' && (
+              <Option value="Bhadrachalam">Bhadrachalam</Option>
+            )}
+            {filters.state === 'Telangana' && filters.district === 'Adilabad' && (
+              <Option value="Utnoor">Utnoor</Option>
+            )}
+            {filters.state === 'Telangana' && filters.district === 'Medak' && (
+              <Option value="Medak">Medak</Option>
+            )}
+            {/* Odisha Villages */}
+            {filters.state === 'Odisha' && filters.district === 'Kalahandi' && (
+              <Option value="Bhawanipatna">Bhawanipatna</Option>
+            )}
+            {filters.state === 'Odisha' && filters.district === 'Rayagada' && (
+              <Option value="Rayagada">Rayagada</Option>
+            )}
+            {filters.state === 'Odisha' && filters.district === 'Sundargarh' && (
+              <Option value="Sundargarh">Sundargarh</Option>
+            )}
+            {filters.state === 'Odisha' && filters.district === 'Koraput' && (
+              <Option value="Koraput">Koraput</Option>
+            )}
           </Select>
 
           <Button 
@@ -189,10 +302,10 @@ const GISViewer = () => {
         title={
           <Space>
             <GlobalOutlined />
-            <span>FRA Parcels Map</span>
+            <span>🌏 FRA Parcels Map - Telangana & Odisha</span>
             {parcelsData && (
-              <span style={{ fontWeight: 'normal', fontSize: '14px' }}>
-                ({parcelsData.features?.length || 0} parcels)
+              <span style={{ fontWeight: 'normal', fontSize: '14px', color: '#666' }}>
+                ({parcelsData.features?.length || 0} parcels loaded)
               </span>
             )}
           </Space>
@@ -201,11 +314,18 @@ const GISViewer = () => {
       >
         {!parcelsData && !loading && (
           <Alert
-            message="No parcel data available"
-            description="No spatial data found for the selected filters. Try adjusting your filters or upload documents with spatial information."
+            message="🗺️ No FRA parcel data available"
+            description="No spatial data found for the selected location. Try selecting Telangana or Odisha state to view available FRA parcels, or adjust your filters."
             type="info"
             showIcon
             style={{ marginBottom: 16 }}
+            action={
+              <Button size="small" onClick={() => {
+                setFilters({ state: 'Telangana', district: undefined, village: undefined });
+              }}>
+                View Telangana Parcels
+              </Button>
+            }
           />
         )}
 
@@ -235,56 +355,97 @@ const GISViewer = () => {
                 onEachFeature={onEachFeature}
               />
             )}
+            
+            {/* Handle map bounds automatically */}
+            <MapBoundsHandler parcelsData={parcelsData} />
           </MapContainer>
         </div>
 
-        {/* Legend */}
-        <div style={{ marginTop: 16, padding: '12px', background: '#f5f5f5', borderRadius: '6px' }}>
-          <h4 style={{ margin: '0 0 8px 0' }}>Legend</h4>
-          <Space>
-            <div style={{ display: 'flex', alignItems: 'center' }}>
+        {/* Legend with status counts */}
+        <div style={{ marginTop: 16, padding: '16px', background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)', borderRadius: '8px', border: '1px solid #e8e8e8' }}>
+          <h4 style={{ margin: '0 0 12px 0', color: '#1890ff' }}>📊 Claim Status Legend</h4>
+          <Space size="large" wrap>
+            <div style={{ display: 'flex', alignItems: 'center', padding: '8px 12px', background: 'white', borderRadius: '6px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
               <div style={{ 
-                width: '20px', 
-                height: '20px', 
+                width: '24px', 
+                height: '24px', 
                 backgroundColor: '#52c41a', 
-                marginRight: '8px',
-                border: '1px solid #ccc'
+                marginRight: '12px',
+                borderRadius: '4px',
+                border: '2px solid #389e0d'
               }}></div>
-              <span>Approved Claims</span>
+              <span style={{ fontWeight: '500' }}>✅ Approved ({parcelsData ? parcelsData.features.filter(f => f.properties.status === 'approved').length : 0})</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', padding: '8px 12px', background: 'white', borderRadius: '6px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
               <div style={{ 
-                width: '20px', 
-                height: '20px', 
+                width: '24px', 
+                height: '24px', 
                 backgroundColor: '#fa8c16', 
-                marginRight: '8px',
-                border: '1px solid #ccc'
+                marginRight: '12px',
+                borderRadius: '4px',
+                border: '2px solid #d46b08'
               }}></div>
-              <span>Pending Claims</span>
+              <span style={{ fontWeight: '500' }}>⏳ Pending ({parcelsData ? parcelsData.features.filter(f => f.properties.status === 'pending').length : 0})</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', padding: '8px 12px', background: 'white', borderRadius: '6px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
               <div style={{ 
-                width: '20px', 
-                height: '20px', 
+                width: '24px', 
+                height: '24px', 
                 backgroundColor: '#f5222d', 
-                marginRight: '8px',
-                border: '1px solid #ccc'
+                marginRight: '12px',
+                borderRadius: '4px',
+                border: '2px solid #cf1322'
               }}></div>
-              <span>Rejected Claims</span>
+              <span style={{ fontWeight: '500' }}>❌ Rejected ({parcelsData ? parcelsData.features.filter(f => f.properties.status === 'rejected').length : 0})</span>
             </div>
           </Space>
+          
+          {parcelsData && parcelsData.features.length > 0 && (
+            <div style={{ marginTop: '12px', padding: '8px', background: 'rgba(255,255,255,0.7)', borderRadius: '4px' }}>
+              <small style={{ color: '#666', fontStyle: 'italic' }}>
+                💡 Click on any parcel to view detailed claim information. Colors represent real-time claim status from the Claims Management system.
+              </small>
+            </div>
+          )}
         </div>
       </Card>
 
       {/* Instructions */}
-      <Card title="How to Use" style={{ marginTop: 16 }}>
-        <ul>
-          <li>Use the filters above to narrow down parcels by location</li>
-          <li>Click on any parcel on the map to view detailed information</li>
-          <li>Different colors represent different claim statuses (see legend)</li>
-          <li>Use the map controls to zoom and pan around the map</li>
-          <li>Click "Refresh Map" to reload the data after changing filters</li>
-        </ul>
+      <Card title="🚀 How to Use the FRA GIS Viewer" style={{ marginTop: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
+          <div>
+            <h4 style={{ color: '#1890ff', marginBottom: '8px' }}>🔍 Filtering Parcels</h4>
+            <ul style={{ margin: 0, paddingLeft: '20px' }}>
+              <li>Select <strong>Telangana</strong> or <strong>Odisha</strong> state to view FRA parcels</li>
+              <li>Choose specific districts and villages to narrow down results</li>
+              <li>Use "Clear Filters" to reset and view all available parcels</li>
+            </ul>
+          </div>
+          <div>
+            <h4 style={{ color: '#1890ff', marginBottom: '8px' }}>🗺️ Map Interaction</h4>
+            <ul style={{ margin: 0, paddingLeft: '20px' }}>
+              <li>Click on any colored parcel to view detailed claim information</li>
+              <li>Use mouse wheel or zoom controls to zoom in/out</li>
+              <li>Drag to pan around the map</li>
+            </ul>
+          </div>
+          <div>
+            <h4 style={{ color: '#1890ff', marginBottom: '8px' }}>🎨 Status Colors</h4>
+            <ul style={{ margin: 0, paddingLeft: '20px' }}>
+              <li><span style={{ color: '#52c41a', fontWeight: 'bold' }}>Green</span> = Approved claims (rights granted)</li>
+              <li><span style={{ color: '#fa8c16', fontWeight: 'bold' }}>Orange</span> = Pending claims (under review)</li>
+              <li><span style={{ color: '#f5222d', fontWeight: 'bold' }}>Red</span> = Rejected claims (denied)</li>
+            </ul>
+          </div>
+          <div>
+            <h4 style={{ color: '#1890ff', marginBottom: '8px' }}>🔄 Real-time Updates</h4>
+            <ul style={{ margin: 0, paddingLeft: '20px' }}>
+              <li>Status changes in Claims Management reflect immediately here</li>
+              <li>Click "Refresh Map" to reload latest data</li>
+              <li>Map automatically focuses on available parcels</li>
+            </ul>
+          </div>
+        </div>
       </Card>
     </div>
   );

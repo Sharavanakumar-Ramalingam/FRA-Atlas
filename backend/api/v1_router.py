@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, Form, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import logging
 import json
 from datetime import datetime
@@ -215,6 +215,103 @@ async def create_sample_claims(db: AsyncSession = Depends(get_db)):
         await db.rollback()
         raise HTTPException(status_code=500, detail=f"Error creating sample claims: {str(e)}")
 
+@api_router.put("/claims/{claim_id}/status")
+async def update_claim_status(
+    claim_id: int,
+    request_data: Dict[str, Any] = Body(...),
+    db: AsyncSession = Depends(get_db)
+):
+    """Update claim status with officer verification"""
+    try:
+        # Get the existing claim
+        query = select(Claim).where(Claim.id == claim_id)
+        result = await db.execute(query)
+        claim = result.scalar_one_or_none()
+        
+        if not claim:
+            raise HTTPException(status_code=404, detail="Claim not found")
+        
+        # Extract data from request
+        status = request_data.get("status")
+        officer_name = request_data.get("officer_name", "")
+        verification_notes = request_data.get("verification_notes", "")
+        approval_date = request_data.get("approval_date")
+        
+        # Validate status
+        valid_statuses = ["pending", "approved", "rejected", "review_required", "under_review"]
+        if status and status not in valid_statuses:
+            raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid_statuses}")
+        
+        # Update claim fields
+        old_status = claim.status
+        if status:
+            claim.status = status
+        if officer_name:
+            claim.officer_name = officer_name
+        if verification_notes:
+            claim.verification_notes = verification_notes
+        if approval_date:
+            claim.approval_date = datetime.fromisoformat(approval_date.replace('Z', '+00:00'))
+        
+        claim.updated_date = datetime.utcnow()
+        
+        await db.commit()
+        await db.refresh(claim)
+        
+        logger.info(f"Claim {claim_id} status updated from {old_status} to {status} by {officer_name}")
+        
+        return {
+            "id": claim.id,
+            "claimant_name": claim.claimant_name,
+            "old_status": old_status,
+            "new_status": claim.status,
+            "officer_name": claim.officer_name,
+            "verification_notes": claim.verification_notes,
+            "updated_date": claim.updated_date.isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating claim status: {e}")
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error updating claim status: {str(e)}")
+
+@api_router.get("/claims/{claim_id}/verification-history")
+async def get_claim_verification_history(
+    claim_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """Get verification history for a claim"""
+    try:
+        query = select(Claim).where(Claim.id == claim_id)
+        result = await db.execute(query)
+        claim = result.scalar_one_or_none()
+        
+        if not claim:
+            raise HTTPException(status_code=404, detail="Claim not found")
+        
+        # Get verification history
+        verification_history = []
+        if hasattr(claim, 'verification_notes') and claim.verification_notes:
+            try:
+                verification_history = json.loads(claim.verification_notes)
+            except:
+                verification_history = []
+        
+        return {
+            "claim_id": claim.id,
+            "claimant_name": claim.claimant_name,
+            "current_status": claim.status,
+            "verification_history": verification_history
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting verification history: {e}")
+        raise HTTPException(status_code=500, detail="Error retrieving verification history")
+
 @api_router.get("/claims")
 async def get_claims(
     state: Optional[str] = Query(None),
@@ -269,9 +366,12 @@ async def get_parcels(
     village: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db)
 ):
-    """Return GeoJSON of FRA parcels"""
+    """Return GeoJSON of FRA parcels with linked claim status"""
     try:
-        query = select(Parcel)
+        # Join parcels with claims to get the current claim status
+        query = select(Parcel, Claim.status, Claim.claimant_name, Claim.claim_type).join(
+            Claim, Parcel.claim_id == Claim.id
+        )
         
         # Apply filters
         if state:
@@ -282,14 +382,14 @@ async def get_parcels(
             query = query.where(Parcel.village.ilike(f"%{village}%"))
             
         result = await db.execute(query)
-        parcels = result.scalars().all()
+        parcel_claim_data = result.all()
         
         # Convert to GeoJSON
         features = []
-        for parcel in parcels:
-            if parcel.geometry:
-                # Convert PostGIS geometry to GeoJSON
-                geom_dict = parcel.geometry_geojson
+        for parcel, claim_status, claimant_name, claim_type in parcel_claim_data:
+            # Get geometry from the property method
+            geom_dict = parcel.geometry_geojson
+            if geom_dict:  # Only include parcels with valid geometry
                 features.append({
                     "type": "Feature",
                     "geometry": geom_dict,
@@ -302,7 +402,13 @@ async def get_parcels(
                         "village": parcel.village,
                         "area_hectares": float(parcel.area_hectares) if parcel.area_hectares else None,
                         "land_type": parcel.land_type,
-                        "survey_number": parcel.survey_number
+                        "survey_number": parcel.survey_number,
+                        "boundaries": parcel.boundaries,
+                        "remarks": parcel.remarks,
+                        # Add claim information
+                        "status": claim_status or "pending",  # Use claim status for parcel coloring
+                        "claimant_name": claimant_name,
+                        "claim_type": claim_type
                     }
                 })
         
@@ -351,14 +457,53 @@ async def get_dss_recommendations(
             }
         
         # Get recommendations from DSS engine
-        recommendations = await get_recommendations(
+        dss_result = await get_recommendations(
             claim_data=claim_data,
             village=village,
             state=state,
             district=district
         )
         
-        return recommendations
+        # Transform DSS result to frontend-expected format
+        recommendations = dss_result.get("recommendations", [])
+        summary = dss_result.get("summary", {})
+        
+        # Generate overall recommendation based on top schemes
+        if recommendations:
+            top_scheme = recommendations[0]
+            confidence = min(top_scheme.get("calculated_priority", 5) / 10.0, 1.0)
+            
+            # Determine recommendation based on priority and match
+            if top_scheme.get("calculated_priority", 0) >= 8:
+                recommendation = "APPROVE"
+            elif top_scheme.get("calculated_priority", 0) >= 6:
+                recommendation = "NEEDS_REVIEW"
+            else:
+                recommendation = "REJECT"
+        else:
+            recommendation = "NEEDS_REVIEW"
+            confidence = 0.5
+        
+        # Create response that supports both the Claims Management modal format
+        # and the standalone DSSRecommendations page (which expects full dss_result)
+        modal_response = {
+            "recommendation": recommendation,
+            "reasoning": f"Based on analysis of {len(recommendations)} applicable schemes. " +
+                        f"Top recommendation: {recommendations[0]['name'] if recommendations else 'None available'}",
+            "confidence_score": confidence,
+            "risk_factors": [],  # Could be enhanced based on eligibility mismatches
+            "suggested_schemes": [scheme["name"] for scheme in recommendations[:5]]  # Top 5 schemes
+        }
+
+        # Merge modal_response with dss_result fields so both UI pages can use the API unchanged
+        merged_response = {**modal_response, **{
+            "recommendations": dss_result.get("recommendations", []),
+            "summary": dss_result.get("summary", {}),
+            "context": dss_result.get("context", {}),
+            "generated_at": dss_result.get("generated_at")
+        }}
+
+        return merged_response
         
     except HTTPException:
         raise

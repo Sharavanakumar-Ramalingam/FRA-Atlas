@@ -51,12 +51,21 @@ export const api = {
   getClaims: (params = {}) => 
     apiClient.get('/api/v1/claims', { params }),
 
+  updateClaimStatus: (claimId, updateData) =>
+    apiClient.put(`/api/v1/claims/${claimId}/status`, updateData),
+
+  getClaimVerificationHistory: (claimId) =>
+    apiClient.get(`/api/v1/claims/${claimId}/verification-history`),
+
   // Parcels APIs
   getParcels: (params = {}) => 
     apiClient.get('/api/v1/parcels', { params }),
 
   // DSS APIs
   getDSSRecommendations: (params = {}) => 
+    apiClient.get('/api/v1/dss/recommend', { params }),
+
+  getDSSRecommendation: (params = {}) => 
     apiClient.get('/api/v1/dss/recommend', { params }),
 };
 
